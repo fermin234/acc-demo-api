@@ -1,0 +1,20 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsIn, IsOptional } from 'class-validator';
+
+import { IGetAllOptions } from '@common/base/application/interface/get-all-options.interface';
+import { fromCommaSeparatedToArray } from '@common/base/application/mapper/base.mapper';
+
+import { <%= pascalCase(name) %> } from '@/module/<%= name %>/domain/<%= name %>.entity';
+
+type <%= pascalCase(name) %>Fields = IGetAllOptions<<%= pascalCase(name) %>>['fields'];
+
+export class <%= pascalCase(name) %>QueryParamsDto {
+  @ApiPropertyOptional()
+  @IsIn(['name'] as <%= pascalCase(name) %>Fields, {
+    each: true,
+  })
+  @Transform((params) => fromCommaSeparatedToArray(params.value))
+  @IsOptional()
+  target?: <%= pascalCase(name) %>Fields;
+}

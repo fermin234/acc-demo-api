@@ -1,0 +1,113 @@
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
+
+import { ManySerializedResponseDto } from '@common/base/application/dto/many-serialized-response.dto';
+import { OneRelationResponse } from '@common/base/application/dto/one-relation-response.interface.dto';
+import { OneSerializedResponseDto } from '@common/base/application/dto/one-serialized-response.dto';
+import { IGetAllOptions } from '@common/base/application/interface/get-all-options.interface';
+
+import { <%= pascalCase(name)%>ResponseAdapter  } from '@/module/<%= name %>/application/adapter/<%= name %>-response.adapter';
+import { ICreate<%= pascalCase(name) %>Dto } from '@/module/<%= name %>/application/dto/create-<%= name %>.dto.interface';
+import { <%= pascalCase(name) %>ResponseDto } from '@/module/<%= name %>/application/dto/<%= name %>-response.dto';
+import { IUpdate<%= pascalCase(name) %>Dto } from '@/module/<%= name %>/application/dto/update-<%= name %>.dto.interface';
+import { <%= pascalCase(name) %>Relation} from '@/module/<%= name %>/application/enum/<%= name %>-relation.enum';
+import { <%= pascalCase(name) %>Mapper } from '@/module/<%= name %>/application/mapper/<%= name %>.mapper';
+import { <%= pascalCase(name) %>NotFoundException } from '@/module/<%= kebabCase(name) %>/infrastructure/database/exception/<%= kebabCase(name) %>-not-found.exception';
+import {
+  <%= constantCase(name) %>_REPOSITORY_KEY,
+  I<%= pascalCase(name) %>Repository,
+} from '@/module/<%= name %>/application/repository/<%= name %>.repository.interface';
+import { <%= pascalCase(name) %> } from '@/module/<%= name %>/domain/<%= name %>.entity';
+import { CollectionDto } from '@common/base/application/dto/collection.dto';
+
+import { <%= constantCase(name) %>_ENTITY_NAME } from '@/module/<%= name %>/domain/<%= name %>.name';
+
+@Injectable()
+export class <%= pascalCase(name) %>Service {
+  constructor(
+    @Inject(<%= constantCase(name) %>_REPOSITORY_KEY)
+    private readonly <%= camelCase(name) %>Repository: I<%= pascalCase(name) %>Repository,
+    private readonly <%= camelCase(name) %>Mapper: <%= pascalCase(name) %>Mapper,
+    private readonly <%= camelCase(name) %>ResponseAdapter: <%= pascalCase(name) %>ResponseAdapter,
+  ) {}
+
+  async getAll(
+    options: IGetAllOptions<<%= pascalCase(name) %>, <%= pascalCase(name)%>Relation[]>,
+  ): Promise<ManySerializedResponseDto<<%= pascalCase(name) %>ResponseDto>> {
+    const { fields, include } = options || {};
+
+    if (include && fields && !fields.includes('id')) fields.push('id');
+
+    const collection = await this.<%= camelCase(name) %>Repository.getAll(options);
+    const collectionDto = new CollectionDto({
+      ...collection,
+      data: collection.data.map((<%= camelCase(name) %>:<%= pascalCase(name) %>) =>
+        this.<%= camelCase(name) %>Mapper.from<%= pascalCase(name) %>To<%= pascalCase(name) %>ResponseDto(<%= camelCase(name) %>),
+      ),
+    });
+
+    return this.<%= camelCase(name) %>ResponseAdapter.manyEntitiesResponse<<%= pascalCase(name) %>ResponseDto>(
+      <%= constantCase(name) %>_ENTITY_NAME,
+      collectionDto,
+      include,
+    );
+  }
+
+  async getOneByIdOrFail(id: number): Promise<OneSerializedResponseDto<<%= pascalCase(name) %>ResponseDto>> {
+    const <%= camelCase(name) %> = await this.<%= camelCase(name) %>Repository.getOneByIdOrFail(id);
+    return this.<%= camelCase(name) %>ResponseAdapter.oneEntityResponse<<%= pascalCase(name) %>ResponseDto>(
+      <%= constantCase(name) %>_ENTITY_NAME,
+      this.<%= camelCase(name) %>Mapper.from<%= pascalCase(name) %>To<%= pascalCase(name) %>ResponseDto(<%= camelCase(name) %>),
+    )
+  }
+
+  async saveOne(create<%= pascalCase(name) %>Dto: ICreate<%= pascalCase(name) %>Dto): Promise<OneSerializedResponseDto<<%= pascalCase(name) %>ResponseDto>> {
+    const <%= camelCase(name) %> = await this.<%= camelCase(name) %>Repository.saveOne(
+      this.<%= camelCase(name) %>Mapper.fromCreate<%= pascalCase(name) %>DtoTo<%= pascalCase(name) %>(create<%= pascalCase(name) %>Dto),
+    );
+    return this.<%= camelCase(name)  %>ResponseAdapter.oneEntityResponse<<%= pascalCase(name) %>ResponseDto>(
+      <%= constantCase(name) %>_ENTITY_NAME,
+      this.<%= camelCase(name) %>Mapper.from<%= pascalCase(name) %>To<%= pascalCase(name) %>ResponseDto(<%= camelCase(name) %>),
+    )
+  }
+
+  async updateOneOrFail(
+    id: number,
+    update<%= pascalCase(name) %>Dto: IUpdate<%= pascalCase(name) %>Dto,
+  ): Promise<OneSerializedResponseDto<<%= pascalCase(name) %>ResponseDto>> {
+    const <%= camelCase(name) %> = await this.<%= camelCase(name) %>Repository.updateOneOrFail(
+      id,
+      this.<%= camelCase(name) %>Mapper.fromUpdate<%= pascalCase(name) %>DtoTo<%= pascalCase(name) %>(update<%= pascalCase(name) %>Dto),
+    );
+    return this.<%= camelCase(name) %>ResponseAdapter.oneEntityResponse<<%= pascalCase(name) %>ResponseDto>(
+      <%= constantCase(name) %>_ENTITY_NAME,
+      this.<%= camelCase(name) %>Mapper.from<%= pascalCase(name) %>To<%= pascalCase(name) %>ResponseDto(<%= camelCase(name) %>),
+    )
+  }
+
+  async getOneRelation(id: number, relationName: <%= pascalCase(name) %>Relation): Promise<OneRelationResponse> {
+    const <%= camelCase(name) %>RelationsList = Object.values(<%= pascalCase(name) %>Relation);
+
+    if(!<%= camelCase(name) %>RelationsList.includes(relationName)) {
+      throw new BadRequestException(`Invalid relation name: ${relationName}, expected one of ${<%= camelCase(name) %>RelationsList}`);
+    }
+
+    const <%= camelCase(name) %> = await this.<%= camelCase(name) %>Repository.getOneById(id, [relationName]);
+    
+    if (!<%= camelCase(name) %>) {
+      throw new <%= pascalCase(name) %>NotFoundException({
+        message: `<%= pascalCase(name) %> with ID ${id} not found`,
+      });
+    }
+
+    const relationData = <%= camelCase(name) %>[relationName] ?? null;
+
+    return this.<%= camelCase(name) %>ResponseAdapter.oneRelationshipsResponse(
+      relationData,
+      relationName,
+      relationData?.id.toString(),
+    );
+  }
+  async deleteOneOrFail(id: number): Promise<void> {
+    return this.<%= camelCase(name) %>Repository.deleteOneOrFail(id);
+  }
+}
